@@ -1,0 +1,334 @@
+version: "3.9"
+########################### NETWORKS
+# You may customize the network subnet (192.168.90.0/24) below as you please.
+# Docker Compose version 3.5 or higher required to define networks this way.
+networks:
+  default:
+    name: nginx-network
+########################### EXTENSION FIELDS
+# Helps eliminate repetition of sections
+# More Info on how to use this: https://github.com/htpcBeginner/docker-traefik/pull/228
+# Common environment values
+x-environment: &default-tz-puid-pgid
+  TZ: $TZ
+  PUID: $PUID
+  PGID: $PGID
+# Keys common to some of the core services that we always to automatically restart on failure
+x-common-keys-core: &common-keys-core
+  security_opt:
+    - no-new-privileges:true
+  restart: always
+# Keys common to some of the dependent services/apps
+x-common-keys-apps: &common-keys-apps
+  security_opt:
+    - no-new-privileges:true
+  restart: always
+# Keys common to some of the services in media-services.txt
+x-common-keys-media: &common-keys-media
+  security_opt:
+    - no-new-privileges:true
+  restart: always
+
+########################### VOLUMES
+volumes:
+  proxitok-cache:
+
+    ########################### SERVICES
+services:
+  ############################# FRONTENDS
+  # NGINX Proxy Manager - Reverse Proxy
+  nginx-proxy-manager:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx
+    <<: *common-keys-core
+    restart: always
+    ports:
+      - '80:80'
+      - '81:81'
+      - '443:443'
+    volumes:
+      - $DOCKERDIR/appdata/nginx-proxy-manager/data:/data
+      - $DOCKERDIR/appdata/letsencrypt:/etc/letsencrypt
+    environment:
+      <<: *default-tz-puid-pgid
+  # Portainer - WebUI for Containers
+  portainer:
+    <<: *common-keys-core # See EXTENSION FIELDS at the top
+    container_name: portainer
+    image: portainer/portainer-ce:latest
+    command: -H unix:///var/run/docker.sock # Use Docker Socket Proxy and comment this line out, for improved security.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Use Docker Socket Proxy and comment this line out, for improved security.
+      - $DOCKERDIR/appdata/portainer/data:/data # Change to local directory if you want to save/transfer config locally.
+    environment:
+      - TZ=$TZ
+  # Heimdall - Application Dashboard
+  heimdall:
+    <<: *common-keys-core # See EXTENSION FIELDS at the top
+    image: lscr.io/linuxserver/heimdall
+    container_name: heimdall
+    volumes:
+      - $DOCKERDIR/appdata/heimdall:/config
+    environment:
+      <<: *default-tz-puid-pgid
+
+  # qBittorrent - Torrent downloader
+  # Needs trailing / if using PathPrefixStrip
+  qbittorrent:
+    <<: *common-keys-apps # See EXTENSION FIELDS at the top
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    #network_mode: container:transmission-vpn
+    volumes:
+      - $DOCKERDIR/appdata/qbittorrent:/config
+      - $DATADIR/$DOWNLOADS_FOLDER:/data/downloads # Ensure that downloads folder is set to /data/downloads in qBittorrent
+      - $USERDIR:/data
+    environment:
+      <<: *default-tz-puid-pgid
+      UMASK_SET: 2
+  ############################# INDEXERS
+  # Prowlarr - Torrent proxy
+  prowlarr:
+    <<: *common-keys-apps # See EXTENSION FIELDS at the top
+    image: ghcr.io/linuxserver/prowlarr:develop
+    container_name: prowlarr
+    volumes:
+      - $DOCKERDIR/appdata/prowlarr:/config
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      <<: *default-tz-puid-pgid
+  ############################# PVRS
+  # Radarr - Movie management
+  # Set url_base in radarr settings if using PathPrefix
+  radarr:
+    <<: *common-keys-media # See EXTENSION FIELDS at the top
+    image: lscr.io/linuxserver/radarr:nightly # latest was causing "Error parsing column 45"
+    container_name: radarr
+    volumes:
+      - $DOCKERDIR/appdata/radarr:/config
+      # Optional. See why MediaCover is mounted as volume https://github.com/htpcBeginner/docker-traefik/discussions/147
+      - $DATADIR/temp/appdata/radarr/MediaCover:/config/MediaCover
+      - $DATADIR:/data
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      <<: *default-tz-puid-pgid
+  # Sonarr - TV Shows management
+  # Set url_base in sonarr settings if using PathPrefix
+  sonarr:
+    <<: *common-keys-media # See EXTENSION FIELDS at the top
+    image: lscr.io/linuxserver/sonarr
+    container_name: sonarr
+    volumes:
+      - $DOCKERDIR/appdata/sonarr:/config
+      # Optional. See why MediaCover is mounted as volume https://github.com/htpcBeginner/docker-traefik/discussions/147
+      - $DATADIR/temp/appdata/sonarr/MediaCover:/config/MediaCover
+      - $DATADIR:/data
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      <<: *default-tz-puid-pgid
+  # Readarr - Books management
+  # Set url_base in readarr settings if using PathPrefix
+  readarr:
+    <<: *common-keys-media # See EXTENSION FIELDS at the top
+    image: hotio/readarr:nightly
+    container_name: readarr
+    volumes:
+      - $DOCKERDIR/appdata/readarr:/config
+      - $DATADIR:/data
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      <<: *default-tz-puid-pgid
+      UMASK: 2
+      #ARGS: ""
+  glances:
+    <<: *common-keys-apps # See EXTENSION FIELDS at the top
+    image: nicolargo/glances:latest
+    container_name: glances
+    pid: host
+    volumes:
+      - $DOCKERDIR/appdata/glances/glances.conf:/glances/conf/glances.conf # Use this if you want to add a glances.conf file
+      - $USERDIR:/data/home:ro
+      - /media/data:/data/data:ro
+      # - /var/run/docker.sock:/var/run/docker.sock:ro # Use Docker Socket Proxy instead for improved security
+    environment:
+      # GLANCES_OPT: "-C /glances/conf/glances.conf --quiet --export influxdb"
+      # GLANCES_OPT: "--export influxdb"
+      GLANCES_OPT: "-w"
+      DOCKER_HOST: unix:///var/run/docker.sock
+  # Dozzle - Real-time Docker Log Viewer
+  dozzle:
+    <<: *common-keys-apps # See EXTENSION FIELDS at the top
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    environment:
+      DOZZLE_LEVEL: info
+      DOZZLE_TAILSIZE: 300
+      DOZZLE_FILTER: "status=running"
+      # DOZZLE_FILTER: "label=log_me" # limits logs displayed to containers with this label
+      # volumes:
+      #  - /var/run/docker.sock:/var/run/docker.sock # Use Docker Socket Proxy instead for improved security
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # If you use Docker Socket Proxy, comment this line out
+
+  # File Browser - Explorer
+  filebrowser:
+    <<: *common-keys-core # See EXTENSION FIELDS at the top
+    image: filebrowser/filebrowser
+    container_name: filebrowser
+    volumes:
+      - $DOCKERDIR/appdata/filebrowser:/config
+      - /media:/data/media
+      - $USERDIR:/srv
+    environment:
+      <<: *default-tz-puid-pgid
+
+  speedtest-tracker:
+    <<: *common-keys-core # See EXTENSION FIELDS at the top
+    container_name: speedtest-tracker
+    image: 'ghcr.io/alexjustesen/speedtest-tracker:latest'
+    volumes:
+      - '$DOCKERDIR/appdata/speedtest-tracker:/config'
+    environment:
+      <<: *default-tz-puid-pgid
+
+  whoami:
+    image: "traefik/whoami"
+    container_name: whoami
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    container_name: watchtower
+    restart: always
+
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    environment:
+      <<: *default-tz-puid-pgid
+    volumes:
+      - $DOCKERDIR/appdata/jackett:/config
+      - $DATADIR/$DOWNLOADS_FOLDER:/downloads
+    restart: always
+
+  flaresolverr:
+    # DockerHub mirror flaresolverr/flaresolverr:latest
+    # image: ghcr.io/flaresolverr/flaresolverr:latest
+    image: 21hsmw/flaresolverr:test
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_HTML=${LOG_HTML:-false}
+      - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
+      - TZ=Europe/Paris
+    restart: always
+
+  uptime-kuma:
+    image: louislam/uptime-kuma
+    container_name: uptime-kuma
+    volumes:
+      - $DOCKERDIR/appdata/uptime-kuma-data:/app/data
+    restart: always
+
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    environment:
+      <<: *default-tz-puid-pgid
+    volumes:
+      - $DOCKERDIR/appdata/sabnzbd:/config
+      - $DATADIR/$DOWNLOADS_FOLDER:/downloads #optional
+      - $DATADIR/$DOWNLOADS_FOLDER/incomplete:/incomplete-downloads #optional
+    restart: always
+
+  homeassistant:
+    container_name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    volumes:
+      - $DOCKERDIR/appdata/homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: always
+    privileged: true
+    network_mode: host
+
+  onlyfood:
+    build: "./dockerfiles/php8-1-apache"
+    restart: "on-failure"
+    container_name: "onlyfood"
+    volumes:
+      - "$DOCKERDIR/appdata/onlyfood:/var/www/html"
+      - "$DOCKERDIR/conf/php8-1/ini/php.ini:/usr/local/etc/php/php.ini"
+      - "$DOCKERDIR/conf/vhost/vhost.conf:/etc/apache2/sites-enabled/000-default.conf"
+
+  mailer:
+    container_name: mailer
+    image: schickling/mailcatcher
+    ports: [ 1025, 1080 ]
+
+  database:
+    image: postgres:13-alpine
+    container_name: onlyfood-db
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_PASSWORD: ChangeMe
+      POSTGRES_USER: symfony
+    volumes:
+      - $DOCKERDIR/appdata/onlyfooddb:/var/lib/postgresql/data:rw
+
+  # nextcloud:
+  #   image: lscr.io/linuxserver/nextcloud:latest
+  #   container_name: nextcloud
+  #   environment:
+  #     <<: *default-tz-puid-pgid
+  #   volumes:
+  #     - $DOCKERDIR/appdata/homeassistant/config:/config
+  #     - $DOCKERDIR/appdata/homeassistant/data:/data
+  #     - $DATADIR:/datadir
+  #   restart: always
+
+  grocy:
+    image: lscr.io/linuxserver/grocy:v4.0.3-ls215
+    container_name: grocy
+    volumes:
+      - $DOCKERDIR/appdata/grocy/config:/config
+    restart: unless-stopped
+    environment:
+      <<: *default-tz-puid-pgid
+
+  hammond:
+    container_name: hammond
+    image: alfhou/hammond:v0.0.21
+    volumes:
+      - $DOCKERDIR/appdata/hammond/config:/config
+      - $DOCKERDIR/appdata/hammond/assets:/assets
+      - /etc/timezone:/etc/timezone
+      - /etc/localtime:/etc/localtime
+    environment:
+      <<: *default-tz-puid-pgid
+    restart: unless-stopped
+
+  proxitok:
+    container_name: proxitok
+    image: ghcr.io/pablouser1/proxitok:master
+    restart: unless-stopped
+    environment:
+      - "LATTE_CACHE=/cache"
+      - "API_CACHE=redis"
+      - "REDIS_HOST=proxitok-redis"
+      - "REDIS_PORT=6379"
+      - "API_SIGNER=remote"
+      - "API_SIGNER_URL=http://proxitok-signer:8080/signature"
+    volumes:
+      - "proxitok-cache:/cache"
+    depends_on:
+      - proxitok-redis
+      - proxitok-signer
+  proxitok-redis:
+    container_name: proxitok-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+  proxitok-signer:
+    container_name: proxitok-signer
+    image: ghcr.io/pablouser1/signtok:master
