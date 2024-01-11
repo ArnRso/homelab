@@ -1,42 +1,25 @@
 version: "3.9"
-########################### NETWORKS
-# You may customize the network subnet (192.168.90.0/24) below as you please.
-# Docker Compose version 3.5 or higher required to define networks this way.
 networks:
   default:
     name: nginx-network
-########################### EXTENSION FIELDS
-# Helps eliminate repetition of sections
-# More Info on how to use this: https://github.com/htpcBeginner/docker-traefik/pull/228
-# Common environment values
 x-environment: &default-tz-puid-pgid
   TZ: $TZ
   PUID: $PUID
   PGID: $PGID
-# Keys common to some of the core services that we always to automatically restart on failure
 x-common-keys-core: &common-keys-core
   security_opt:
     - no-new-privileges:true
   restart: always
-# Keys common to some of the dependent services/apps
 x-common-keys-apps: &common-keys-apps
   security_opt:
     - no-new-privileges:true
   restart: always
-# Keys common to some of the services in media-services.txt
 x-common-keys-media: &common-keys-media
   security_opt:
     - no-new-privileges:true
   restart: always
 
-########################### VOLUMES
-volumes:
-  proxitok-cache:
-
-    ########################### SERVICES
 services:
-  ############################# FRONTENDS
-  # NGINX Proxy Manager - Reverse Proxy
   nginx-proxy-manager:
     image: 'jc21/nginx-proxy-manager:latest'
     container_name: nginx
@@ -51,20 +34,20 @@ services:
       - $DOCKERDIR/appdata/letsencrypt:/etc/letsencrypt
     environment:
       <<: *default-tz-puid-pgid
-  # Portainer - WebUI for Containers
+
   portainer:
-    <<: *common-keys-core # See EXTENSION FIELDS at the top
+    <<: *common-keys-core
     container_name: portainer
     image: portainer/portainer-ce:latest
-    command: -H unix:///var/run/docker.sock # Use Docker Socket Proxy and comment this line out, for improved security.
+    command: -H unix:///var/run/docker.sock
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro # Use Docker Socket Proxy and comment this line out, for improved security.
-      - $DOCKERDIR/appdata/portainer/data:/data # Change to local directory if you want to save/transfer config locally.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - $DOCKERDIR/appdata/portainer/data:/data
     environment:
       - TZ=$TZ
-  # Heimdall - Application Dashboard
+
   heimdall:
-    <<: *common-keys-core # See EXTENSION FIELDS at the top
+    <<: *common-keys-core
     image: lscr.io/linuxserver/heimdall
     container_name: heimdall
     volumes:
@@ -72,24 +55,20 @@ services:
     environment:
       <<: *default-tz-puid-pgid
 
-  # qBittorrent - Torrent downloader
-  # Needs trailing / if using PathPrefixStrip
   qbittorrent:
-    <<: *common-keys-apps # See EXTENSION FIELDS at the top
+    <<: *common-keys-apps
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
-    #network_mode: container:transmission-vpn
     volumes:
       - $DOCKERDIR/appdata/qbittorrent:/config
-      - $DATADIR/$DOWNLOADS_FOLDER:/data/downloads # Ensure that downloads folder is set to /data/downloads in qBittorrent
+      - $DATADIR/$DOWNLOADS_FOLDER:/data/downloads
       - $USERDIR:/data
     environment:
       <<: *default-tz-puid-pgid
       UMASK_SET: 2
-  ############################# INDEXERS
-  # Prowlarr - Torrent proxy
+
   prowlarr:
-    <<: *common-keys-apps # See EXTENSION FIELDS at the top
+    <<: *common-keys-apps
     image: ghcr.io/linuxserver/prowlarr:develop
     container_name: prowlarr
     volumes:
@@ -97,39 +76,33 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       <<: *default-tz-puid-pgid
-  ############################# PVRS
-  # Radarr - Movie management
-  # Set url_base in radarr settings if using PathPrefix
+
   radarr:
-    <<: *common-keys-media # See EXTENSION FIELDS at the top
-    image: lscr.io/linuxserver/radarr:nightly # latest was causing "Error parsing column 45"
+    <<: *common-keys-media
+    image: lscr.io/linuxserver/radarr:nightly
     container_name: radarr
     volumes:
       - $DOCKERDIR/appdata/radarr:/config
-      # Optional. See why MediaCover is mounted as volume https://github.com/htpcBeginner/docker-traefik/discussions/147
       - $DATADIR/temp/appdata/radarr/MediaCover:/config/MediaCover
       - $DATADIR:/data
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       <<: *default-tz-puid-pgid
-  # Sonarr - TV Shows management
-  # Set url_base in sonarr settings if using PathPrefix
+
   sonarr:
-    <<: *common-keys-media # See EXTENSION FIELDS at the top
+    <<: *common-keys-media
     image: lscr.io/linuxserver/sonarr
     container_name: sonarr
     volumes:
       - $DOCKERDIR/appdata/sonarr:/config
-      # Optional. See why MediaCover is mounted as volume https://github.com/htpcBeginner/docker-traefik/discussions/147
       - $DATADIR/temp/appdata/sonarr/MediaCover:/config/MediaCover
       - $DATADIR:/data
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       <<: *default-tz-puid-pgid
-  # Readarr - Books management
-  # Set url_base in readarr settings if using PathPrefix
+
   readarr:
-    <<: *common-keys-media # See EXTENSION FIELDS at the top
+    <<: *common-keys-media
     image: hotio/readarr:nightly
     container_name: readarr
     volumes:
@@ -139,40 +112,35 @@ services:
     environment:
       <<: *default-tz-puid-pgid
       UMASK: 2
-      #ARGS: ""
+
   glances:
-    <<: *common-keys-apps # See EXTENSION FIELDS at the top
+    <<: *common-keys-apps
     image: nicolargo/glances:latest
     container_name: glances
     pid: host
     volumes:
-      - $DOCKERDIR/appdata/glances/glances.conf:/glances/conf/glances.conf # Use this if you want to add a glances.conf file
+      - $DOCKERDIR/appdata/glances/glances.conf:/glances/conf/glances.conf
       - $USERDIR:/data/home:ro
       - /media/data:/data/data:ro
-      # - /var/run/docker.sock:/var/run/docker.sock:ro # Use Docker Socket Proxy instead for improved security
     environment:
       # GLANCES_OPT: "-C /glances/conf/glances.conf --quiet --export influxdb"
       # GLANCES_OPT: "--export influxdb"
       GLANCES_OPT: "-w"
       DOCKER_HOST: unix:///var/run/docker.sock
-  # Dozzle - Real-time Docker Log Viewer
+
   dozzle:
-    <<: *common-keys-apps # See EXTENSION FIELDS at the top
+    <<: *common-keys-apps
     image: amir20/dozzle:latest
     container_name: dozzle
     environment:
       DOZZLE_LEVEL: info
       DOZZLE_TAILSIZE: 300
       DOZZLE_FILTER: "status=running"
-      # DOZZLE_FILTER: "label=log_me" # limits logs displayed to containers with this label
-      # volumes:
-      #  - /var/run/docker.sock:/var/run/docker.sock # Use Docker Socket Proxy instead for improved security
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro # If you use Docker Socket Proxy, comment this line out
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
-  # File Browser - Explorer
   filebrowser:
-    <<: *common-keys-core # See EXTENSION FIELDS at the top
+    <<: *common-keys-core
     image: filebrowser/filebrowser
     container_name: filebrowser
     volumes:
@@ -214,8 +182,7 @@ services:
 
   flaresolverr:
     # DockerHub mirror flaresolverr/flaresolverr:latest
-    # image: ghcr.io/flaresolverr/flaresolverr:latest
-    image: 21hsmw/flaresolverr:test
+    image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
