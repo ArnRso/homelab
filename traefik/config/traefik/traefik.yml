@@ -1,0 +1,32 @@
+logLevel: INFO
+
+api:
+  insecure: true
+  dashboard: true
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entrypoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+
+providers:
+  file:
+    filename: /etc/traefik/provider.yml
+  docker:
+    endpoint: unix:///var/run/docker.sock
+    watch: true
+    exposedByDefault: false
+
+certificatesResolvers:
+  letsencryptresolver:
+    acme:
+      email: "adrien.russo@gmail.com"
+      storage: /etc/traefik/acme.json
+      httpChallenge:
+        entryPoint: web

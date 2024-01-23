@@ -52,11 +52,9 @@ services:
       <<: *default-tz-puid-pgid
     labels:
       - traefik.enable=true
-      # - traefik.http.middlewares.heimdall-auth.basicauth.users=${HTTP_BASIC_USER}:${HTTP_BASIC_PWD}
       - traefik.http.routers.heimdall.entrypoints=websecure
       - traefik.http.routers.heimdall.rule=Host(`heimdall.${DOMAIN}`)
       - traefik.http.routers.heimdall.service=heimdall
-      # - traefik.http.routers.heimdall.middlewares=admin
       - traefik.http.routers.heimdall.tls.certresolver=letsencryptresolver
 
   qbittorrent:

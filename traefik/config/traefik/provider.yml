@@ -1,0 +1,14 @@
+http:
+  routers:
+    plex:
+      rule: "Host(`plex.home-arnrso.com`)"
+      entryPoints:
+        - websecure
+      service: plex
+      tls:
+        certResolver: letsencryptresolver
+  services:
+    plex:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.250:32400"
