@@ -1,7 +1,9 @@
 version: "3.9"
 networks:
   default:
-    name: nginx-network
+    # name: nginx-network
+    name: traefik
+    external: true
 x-environment: &default-tz-puid-pgid
   TZ: $TZ
   PUID: $PUID
@@ -20,21 +22,6 @@ x-common-keys-media: &common-keys-media
   restart: always
 
 services:
-  nginx-proxy-manager:
-    image: 'jc21/nginx-proxy-manager:latest'
-    container_name: nginx
-    <<: *common-keys-core
-    restart: always
-    ports:
-      - '80:80'
-      - '81:81'
-      - '443:443'
-    volumes:
-      - $DOCKERDIR/appdata/nginx-proxy-manager/data:/data
-      - $DOCKERDIR/appdata/letsencrypt:/etc/letsencrypt
-    environment:
-      <<: *default-tz-puid-pgid
-
   portainer:
     <<: *common-keys-core
     container_name: portainer
@@ -45,6 +32,15 @@ services:
       - $DOCKERDIR/appdata/portainer/data:/data
     environment:
       - TZ=$TZ
+    labels:
+      - traefik.enable=true
+      # - traefik.http.middlewares.admin.basicauth.users=${HTTP_BASIC_USER}:${HTTP_BASIC_PWD}
+      - traefik.http.routers.portainer.entrypoints=websecure
+      - traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)
+      - traefik.http.services.portainer.loadbalancer.server.port=9000
+      - traefik.http.routers.portainer.service=portainer
+      # - traefik.http.routers.portainer.middlewares=admin
+      - traefik.http.routers.portainer.tls.certresolver=letsencryptresolver
 
   heimdall:
     <<: *common-keys-core
@@ -54,6 +50,14 @@ services:
       - $DOCKERDIR/appdata/heimdall:/config
     environment:
       <<: *default-tz-puid-pgid
+    labels:
+      - traefik.enable=true
+      # - traefik.http.middlewares.heimdall-auth.basicauth.users=${HTTP_BASIC_USER}:${HTTP_BASIC_PWD}
+      - traefik.http.routers.heimdall.entrypoints=websecure
+      - traefik.http.routers.heimdall.rule=Host(`heimdall.${DOMAIN}`)
+      - traefik.http.routers.heimdall.service=heimdall
+      # - traefik.http.routers.heimdall.middlewares=admin
+      - traefik.http.routers.heimdall.tls.certresolver=letsencryptresolver
 
   qbittorrent:
     <<: *common-keys-apps
@@ -66,6 +70,13 @@ services:
     environment:
       <<: *default-tz-puid-pgid
       UMASK_SET: 2
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.qbittorrent.entrypoints=websecure
+      - traefik.http.routers.qbittorrent.rule=Host(`qbittorrent.${DOMAIN}`)
+      - traefik.http.routers.qbittorrent.service=qbittorrent
+      - traefik.http.services.qbittorrent.loadbalancer.server.port=8080
+      - traefik.http.routers.qbittorrent.tls.certresolver=letsencryptresolver
 
   prowlarr:
     <<: *common-keys-apps
@@ -76,6 +87,13 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       <<: *default-tz-puid-pgid
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.prowlarr.entrypoints=websecure
+      - traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN}`)
+      - traefik.http.routers.prowlarr.service=prowlarr
+      - traefik.http.services.prowlarr.loadbalancer.server.port=9696
+      - traefik.http.routers.prowlarr.tls.certresolver=letsencryptresolver
 
   radarr:
     <<: *common-keys-media
@@ -88,6 +106,13 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       <<: *default-tz-puid-pgid
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.radarr.entrypoints=websecure
+      - traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN}`)
+      - traefik.http.routers.radarr.service=radarr
+      - traefik.http.services.radarr.loadbalancer.server.port=7878
+      - traefik.http.routers.radarr.tls.certresolver=letsencryptresolver
 
   sonarr:
     <<: *common-keys-media
@@ -100,6 +125,13 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       <<: *default-tz-puid-pgid
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.sonarr.entrypoints=websecure
+      - traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN}`)
+      - traefik.http.routers.sonarr.service=sonarr
+      - traefik.http.services.sonarr.loadbalancer.server.port=8989
+      - traefik.http.routers.sonarr.tls.certresolver=letsencryptresolver
 
   readarr:
     <<: *common-keys-media
@@ -112,6 +144,13 @@ services:
     environment:
       <<: *default-tz-puid-pgid
       UMASK: 2
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.readarr.entrypoints=websecure
+      - traefik.http.routers.readarr.rule=Host(`readarr.${DOMAIN}`)
+      - traefik.http.routers.readarr.service=readarr
+      - traefik.http.services.readarr.loadbalancer.server.port=8787
+      - traefik.http.routers.readarr.tls.certresolver=letsencryptresolver
 
   glances:
     <<: *common-keys-apps
@@ -127,6 +166,13 @@ services:
       # GLANCES_OPT: "--export influxdb"
       GLANCES_OPT: "-w"
       DOCKER_HOST: unix:///var/run/docker.sock
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.glances.entrypoints=websecure
+      - traefik.http.routers.glances.rule=Host(`glances.${DOMAIN}`)
+      - traefik.http.routers.glances.service=glances
+      - traefik.http.services.glances.loadbalancer.server.port=61208
+      - traefik.http.routers.glances.tls.certresolver=letsencryptresolver
 
   dozzle:
     <<: *common-keys-apps
@@ -138,6 +184,13 @@ services:
       DOZZLE_FILTER: "status=running"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dozzle.entrypoints=websecure
+      - traefik.http.routers.dozzle.rule=Host(`dozzle.${DOMAIN}`)
+      - traefik.http.routers.dozzle.service=dozzle
+      - traefik.http.services.dozzle.loadbalancer.server.port=8080
+      - traefik.http.routers.dozzle.tls.certresolver=letsencryptresolver
 
   filebrowser:
     <<: *common-keys-core
@@ -149,6 +202,13 @@ services:
       - $USERDIR:/srv
     environment:
       <<: *default-tz-puid-pgid
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.filebrowser.entrypoints=websecure
+      - traefik.http.routers.filebrowser.rule=Host(`filebrowser.${DOMAIN}`)
+      - traefik.http.routers.filebrowser.service=filebrowser
+      - traefik.http.services.filebrowser.loadbalancer.server.port=80
+      - traefik.http.routers.filebrowser.tls.certresolver=letsencryptresolver
 
   # speedtest-tracker:
   #   <<: *common-keys-core # See EXTENSION FIELDS at the top
@@ -162,6 +222,13 @@ services:
   whoami:
     image: "traefik/whoami"
     container_name: whoami
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.whoami.entrypoints=websecure
+      - traefik.http.routers.whoami.rule=Host(`whoami.${DOMAIN}`)
+      - traefik.http.routers.whoami.service=whoami
+      - traefik.http.services.whoami.loadbalancer.server.port=80
+      - traefik.http.routers.whoami.tls.certresolver=letsencryptresolver
 
   watchtower:
     image: containrrr/watchtower
@@ -179,6 +246,13 @@ services:
       - $DOCKERDIR/appdata/jackett:/config
       - $DATADIR/$DOWNLOADS_FOLDER:/downloads
     restart: always
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.jackett.entrypoints=websecure
+      - traefik.http.routers.jackett.rule=Host(`jackett.${DOMAIN}`)
+      - traefik.http.routers.jackett.service=jackett
+      - traefik.http.services.jackett.loadbalancer.server.port=9117
+      - traefik.http.routers.jackett.tls.certresolver=letsencryptresolver
 
   flaresolverr:
     # DockerHub mirror flaresolverr/flaresolverr:latest
@@ -190,6 +264,13 @@ services:
       - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
       - TZ=Europe/Paris
     restart: always
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.flaresolverr.entrypoints=websecure
+      - traefik.http.routers.flaresolverr.rule=Host(`flaresolverr.${DOMAIN}`)
+      - traefik.http.routers.flaresolverr.service=flaresolverr
+      - traefik.http.services.flaresolverr.loadbalancer.server.port=8191
+      - traefik.http.routers.flaresolverr.tls.certresolver=letsencryptresolver
 
   uptime-kuma:
     image: louislam/uptime-kuma
@@ -197,6 +278,13 @@ services:
     volumes:
       - $DOCKERDIR/appdata/uptime-kuma-data:/app/data
     restart: always
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.uptime-kuma.entrypoints=websecure
+      - traefik.http.routers.uptime-kuma.rule=Host(`uptime-kuma.${DOMAIN}`)
+      - traefik.http.routers.uptime-kuma.service=uptime-kuma
+      - traefik.http.services.uptime-kuma.loadbalancer.server.port=3001
+      - traefik.http.routers.uptime-kuma.tls.certresolver=letsencryptresolver
 
   # sabnzbd:
   #   image: lscr.io/linuxserver/sabnzbd:latest
@@ -218,6 +306,15 @@ services:
     restart: always
     privileged: true
     network_mode: host
+    environment:
+      <<: *default-tz-puid-pgid
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.homeassistant.entrypoints=websecure
+      - traefik.http.routers.homeassistant.rule=Host(`homeassistant.${DOMAIN}`)
+      - traefik.http.routers.homeassistant.service=homeassistant
+      - traefik.http.services.homeassistant.loadbalancer.server.port=8123
+      - traefik.http.routers.homeassistant.tls.certresolver=letsencryptresolver
 
   onlyfood:
     build: "./dockerfiles/php8-1-apache"
@@ -227,11 +324,24 @@ services:
       - "$DOCKERDIR/appdata/onlyfood:/var/www/html"
       - "$DOCKERDIR/conf/php8-1/ini/php.ini:/usr/local/etc/php/php.ini"
       - "$DOCKERDIR/conf/vhost/vhost.conf:/etc/apache2/sites-enabled/000-default.conf"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.onlyfood.entrypoints=websecure
+      - traefik.http.routers.onlyfood.rule=Host(`onlyfood.${DOMAIN}`)
+      - traefik.http.routers.onlyfood.service=onlyfood
+      - traefik.http.services.onlyfood.loadbalancer.server.port=80
+      - traefik.http.routers.onlyfood.tls.certresolver=letsencryptresolver
 
   mailer:
     container_name: mailer
     image: schickling/mailcatcher
-    ports: [ 1025, 1080 ]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mailer.entrypoints=websecure
+      - traefik.http.routers.mailer.rule=Host(`mailer.${DOMAIN}`)
+      - traefik.http.routers.mailer.service=mailer
+      - traefik.http.services.mailer.loadbalancer.server.port=1080
+      - traefik.http.routers.mailer.tls.certresolver=letsencryptresolver
 
   database:
     image: postgres:13-alpine
