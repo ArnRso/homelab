@@ -1,0 +1,31 @@
+version: "3.9"
+
+networks:
+  default:
+    name: traefik
+    external: true
+
+services:
+  glances:
+    image: nicolargo/glances:latest
+    container_name: glances
+    security_opt:
+      - no-new-privileges:true
+    restart: always
+    pid: host
+    volumes:
+      - ./data/glances/glances.conf:/glances/conf/glances.conf
+      - $USERDIR:/data/home:ro
+      - /media/data:/data/data:ro
+    environment:
+      # GLANCES_OPT: "-C /glances/conf/glances.conf --quiet --export influxdb"
+      # GLANCES_OPT: "--export influxdb"
+      GLANCES_OPT: "-w"
+      DOCKER_HOST: unix:///var/run/docker.sock
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.glances.entrypoints=websecure
+      - traefik.http.routers.glances.rule=Host(`glances.${DOMAIN}`)
+      - traefik.http.routers.glances.service=glances
+      - traefik.http.services.glances.loadbalancer.server.port=61208
+      - traefik.http.routers.glances.tls.certresolver=letsencryptresolver

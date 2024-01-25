@@ -1,0 +1,27 @@
+version: "3.9"
+
+networks:
+  default:
+    name: traefik
+    external: true
+
+services:
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    security_opt:
+      - no-new-privileges:true
+    restart: always
+    environment:
+      DOZZLE_LEVEL: info
+      DOZZLE_TAILSIZE: 300
+      DOZZLE_FILTER: "status=running"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dozzle.entrypoints=websecure
+      - traefik.http.routers.dozzle.rule=Host(`dozzle.${DOMAIN}`)
+      - traefik.http.routers.dozzle.service=dozzle
+      - traefik.http.services.dozzle.loadbalancer.server.port=8080
+      - traefik.http.routers.dozzle.tls.certresolver=letsencryptresolver

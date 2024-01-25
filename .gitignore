@@ -2,3 +2,4 @@
 /appdata
 /logs
 /*/data
+/traefik/config/traefik/acme.json

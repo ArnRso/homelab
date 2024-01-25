@@ -1,0 +1,27 @@
+version: "3.9"
+networks:
+  default:
+    name: traefik
+    external: true
+services:
+  portainer:
+    container_name: portainer
+    security_opt:
+      - no-new-privileges:true
+    restart: always
+    image: portainer/portainer-ce:latest
+    command: -H unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./data/portainer/data:/data
+    environment:
+      - TZ=$TZ
+    labels:
+      - traefik.enable=true
+      # - traefik.http.middlewares.admin.basicauth.users=${HTTP_BASIC_USER}:${HTTP_BASIC_PWD}
+      - traefik.http.routers.portainer.entrypoints=websecure
+      - traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)
+      - traefik.http.services.portainer.loadbalancer.server.port=9000
+      - traefik.http.routers.portainer.service=portainer
+      # - traefik.http.routers.portainer.middlewares=admin
+      - traefik.http.routers.portainer.tls.certresolver=letsencryptresolver
