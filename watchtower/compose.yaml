@@ -1,0 +1,15 @@
+version: "3.9"
+
+networks:
+  default:
+    # name: nginx-network
+    name: traefik
+    external: true
+
+services:
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    container_name: watchtower
+    restart: always

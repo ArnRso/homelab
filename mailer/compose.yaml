@@ -1,0 +1,17 @@
+version: "3.9"
+networks:
+  default:
+    # name: nginx-network
+    name: traefik
+    external: true
+services:
+  mailer:
+    container_name: mailer
+    image: schickling/mailcatcher
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mailer.entrypoints=websecure
+      - traefik.http.routers.mailer.rule=Host(`mailer.${DOMAIN}`)
+      - traefik.http.routers.mailer.service=mailer
+      - traefik.http.services.mailer.loadbalancer.server.port=1080
+      - traefik.http.routers.mailer.tls.certresolver=letsencryptresolver

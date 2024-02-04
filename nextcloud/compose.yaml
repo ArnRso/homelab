@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.9'
 
 networks:
   default:
@@ -27,8 +27,8 @@ services:
       - nextcloud_db
     volumes:
       - ./data/nextcloud:/var/www/html
-      - $DATADIR/Images:/data/images
-      - $DATADIR/Videos:/data/videos
+      - $DATADIR/Images:/var/www/html/data/images
+      - $DATADIR/Videos:/var/www/html/data/videos
     environment:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_DATABASE: nextcloud

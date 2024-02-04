@@ -1,0 +1,31 @@
+version: "3.9"
+networks:
+  default:
+    # name: nginx-network
+    name: traefik
+    external: true
+services:
+  onlyfood:
+    build: "./dockerfiles/php8-1-apache"
+    restart: "on-failure"
+    container_name: "onlyfood"
+    volumes:
+      - "./data/onlyfood:/var/www/html"
+      - "./conf/php8-1/ini/php.ini:/usr/local/etc/php/php.ini"
+      - "./conf/vhost/vhost.conf:/etc/apache2/sites-enabled/000-default.conf"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.onlyfood.entrypoints=websecure
+      - traefik.http.routers.onlyfood.rule=Host(`onlyfood.${DOMAIN}`)
+      - traefik.http.routers.onlyfood.service=onlyfood
+      - traefik.http.services.onlyfood.loadbalancer.server.port=80
+      - traefik.http.routers.onlyfood.tls.certresolver=letsencryptresolver
+  database:
+    image: postgres:13-alpine
+    container_name: onlyfood-db
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_PASSWORD: ChangeMe
+      POSTGRES_USER: symfony
+    volumes:
+      - ./data/onlyfooddb:/var/lib/postgresql/data:rw
